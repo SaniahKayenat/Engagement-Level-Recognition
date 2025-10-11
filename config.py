@@ -1,0 +1,12 @@
+tube_length   = 150
+flow_root     = '/data/Saniah/Video/Raft/Raft_features_all'
+videos_root   = '/data/Saniah/Video/Datasets/Dataset_30fps_all'
+csv_path      = '/data/Saniah/Video/CSV/track_detect_all.csv'
+resize        = (128,128)
+num_classes   = 3
+track_id_min  = 1
+track_id_max  = 5
+num_epochs    = 100
+num_folds     = 5
+patience      = 20
+lr            = 1e-4
