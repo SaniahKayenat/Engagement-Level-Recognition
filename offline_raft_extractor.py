@@ -43,8 +43,8 @@ for video in tqdm(videos):
 
         cap.release()
 
-        flows = np.stack(flows, axis=0)  # (T-1,2,H,W)
-        # basename = os.path.splitext(os.path.splitext(video)[0])[0]
+        flows = np.stack(flows, axis=0)  
+
         out_path = os.path.join(output_dir, video.replace('.mp4','.npy'))
         np.save(out_path, flows)
 

@@ -14,7 +14,7 @@ class TwoStreamExtractor(nn.Module):
         self.fc_flow = nn.Linear(in_feat, feat_dim)
 
     def forward(self, x_rgb, x_flow):
-        # x_rgb: (B,3,T,H,W)   x_flow: (B,3,T,H,W)
+
         f1 = self.rgb_backbone(x_rgb)
         f1 = self.pool(f1).flatten(1)
         f1 = self.fc_rgb(f1)

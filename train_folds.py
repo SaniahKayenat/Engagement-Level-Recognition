@@ -13,34 +13,33 @@ from tqdm import tqdm
 from datasets.flow_video_dataset import FlowVideoDataset
 from models.flow_mlp import TransformerFlowExtractor
 from models.i3d import FeatureExtractor
+from models.student_model import StudentGlobalNet
 
 # Device setup
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-torch.manual_seed(0)
-np.random.seed(0)
-random.seed(0)
 if torch.cuda.is_available():
     torch.cuda.manual_seed(0)
     torch.cuda.manual_seed_all(0)
 
 # Hyperparameters
-tube_length = 150
-flow_root = '/data/Saniah/Video/Raft/Raft_features_all'
-videos_root = '/data/Saniah/Video/Datasets/Dataset_30fps_all'
-csv_path = '/data/Saniah/Video/CSV/track_detect_all.csv'
-resize = (128, 128)
-num_classes = 3
-track_id_min = 1
-track_id_max = 5
-num_epochs = 100
-patience = 20
-lr = 1e-4
-results_path = '/data/Saniah/Video/Results/Results_all_tr_folds'
+tube_length   = 150
+flow_root     = 'Optical Flow Feature Folder'
+videos_root   = 'Dataset Folder'
+csv_path      = 'CSV Path'
+resize        = (128,128)
+num_classes   = 3
+track_id_min  = 1
+track_id_max  = 5
+num_epochs    = 100
+num_folds     = 5
+patience      = 20
+lr            = 1e-4
+results_path  = 'Result Folder'
 os.makedirs(results_path, exist_ok=True)
-metrics_csv = os.path.join(results_path, 'metrics.csv')
+metrics_csv = os.path.join(results_path, 'metrics_five_folds.csv')
 
-# Initialize dataset and split indices
+# Initialize dataset 
 dataset = FlowVideoDataset(
     csv_path=csv_path,
     flow_root=flow_root,
@@ -52,69 +51,45 @@ dataset = FlowVideoDataset(
     track_id_max=5
 )
 
-# Create splits for k-fold cross-validation (5-fold)
+# Create splits for k-fold cross-validation 
 kf = KFold(n_splits=2, shuffle=True, random_state=42)
 indices = np.arange(len(dataset))
 
-# Create a folder for results
 if not os.path.exists(metrics_csv):
     pd.DataFrame(
         columns=['Fold', 'Accuracy', 'Precision', 'Recall', 'F1', 'Loss']
     ).to_csv(metrics_csv, index=False)
 
-# Model initialization
+# Models
 flow_ex = TransformerFlowExtractor().to(device)
 i3d_ex = FeatureExtractor().to(device)
-
-class StudentGlobalNet(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.flow_ex = flow_ex
-        self.i3d_ex = i3d_ex
-        self.flow_proj = nn.LazyLinear(512)
-        self.rgb_proj = nn.LazyLinear(512)
-        self.classifier = nn.Sequential(
-            nn.Linear(1024, 512),
-            nn.ReLU(),
-            nn.Linear(512, num_classes)
-        )
-
-    def forward(self, student_flows, video_rgb):
-        embeds = self.flow_ex(student_flows)
-        pooled_embeds = embeds.mean(dim=0, keepdim=True)
-        gv = self.i3d_ex(video_rgb)
-        f = self.flow_proj(pooled_embeds)
-        r = self.rgb_proj(gv)
-        x = torch.cat([f, r], dim=1)
-        return self.classifier(x).squeeze(0)
 
 # Global metrics for each fold
 all_metrics = []
 
-# K-fold cross-validation loop
 for fold, (train_idx, test_idx) in enumerate(kf.split(indices)):
     print(f"Training fold {fold + 1}")
 
-    # Split data into train and validation for this fold (80% train + 10% validation)
+    # Split data 
     trainval_idx, val_idx = train_test_split(train_idx, test_size=0.125, random_state=42, stratify=[dataset[i][2] for i in train_idx])
 
-    # Create DataLoader for training, validation, and testing
+    # Create DataLoader 
     train_loader = DataLoader(Subset(dataset, trainval_idx), batch_size=1, shuffle=True, num_workers=4)
     val_loader = DataLoader(Subset(dataset, val_idx), batch_size=1, shuffle=False, num_workers=4)
     test_loader = DataLoader(Subset(dataset, test_idx), batch_size=1, shuffle=False, num_workers=4)
 
-    # Create a folder for the fold
+    # fold folder
     fold_result_path = os.path.join(results_path, f'fold_{fold + 1}')
     os.makedirs(fold_result_path, exist_ok=True)
 
-    # Model setup for this fold
-    model = StudentGlobalNet().to(device)
+    # Model setup 
+    model = StudentGlobalNet(flow_ex, i3d_ex, num_classes).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     train_labels = []
     for _, _, labels in tqdm(train_loader):
         train_labels.extend(labels.tolist())
 
-    class_counts   = np.bincount(train_labels, minlength=num_classes)  # <- add minlength
+    class_counts   = np.bincount(train_labels, minlength=num_classes) 
     total_samples  = class_counts.sum()
     eps = 1e-8
     class_weights  = total_samples / (num_classes * (class_counts + eps))
@@ -124,12 +99,12 @@ for fold, (train_idx, test_idx) in enumerate(kf.split(indices)):
     best_f1, best_loss = -1.0, float('inf')
     min_delta = 1e-4
     wait = 0
-        # Metrics for storing per epoch
+      
     train_accuracies, val_accuracies = [], []
     train_precisions, val_precisions = [], []
     train_recalls, val_recalls = [], []
     train_f1_scores, val_f1_scores = [], []
-    # Training loop for each fold
+    # Training loop 
     for epoch in range(1, num_epochs + 1):
         model.train()
         train_loss, true_train, pred_train = 0.0, [], []
@@ -164,7 +139,7 @@ for fold, (train_idx, test_idx) in enumerate(kf.split(indices)):
         train_precisions.append(prec_train)
         train_recalls.append(rec_train)
         train_f1_scores.append(f1_train)
-        # Validation loop for this fold
+        # Validation loop 
         model.eval()
         val_loss, true_val, pred_val = 0.0, [], []
         with torch.no_grad():
@@ -197,7 +172,7 @@ for fold, (train_idx, test_idx) in enumerate(kf.split(indices)):
         val_f1_scores.append(f1_val)
 
 
-        # Early stopping check
+        # Early stopping 
         improved = (f1_val > best_f1 + min_delta) or (abs(f1_val - best_f1) <= min_delta and val_loss < best_loss)
         if improved:
             best_f1, best_loss = f1_val, val_loss
@@ -208,7 +183,7 @@ for fold, (train_idx, test_idx) in enumerate(kf.split(indices)):
             if wait >= patience:
                 print(f"Early stopping at epoch {epoch} (no F1 improvement).")
                 break
-    # Plot and save training/validation curves after this fold
+    # Plot and save training/validation curves 
     plt.figure(figsize=(10, 5))
     plt.plot(range(1, num_epochs + 1), train_accuracies, label='Train Accuracy', color='blue')
     plt.plot(range(1, num_epochs + 1), val_accuracies, label='Val Accuracy', color='green')
@@ -244,8 +219,8 @@ for fold, (train_idx, test_idx) in enumerate(kf.split(indices)):
     plt.title(f'Recall Curve - Fold {fold + 1}')
     plt.legend()
     plt.savefig(os.path.join(fold_result_path, 'recall_curve.png'))
-    plt.close()  # Close the figure to release memory
-    # Testing phase for this fold (evaluate on test set)
+    plt.close()  
+    # Testing phase 
     model.load_state_dict(torch.load(os.path.join(fold_result_path, 'best_model.pth')))
     model.eval()
     test_loss, true_test, pred_test = 0.0, [], []
@@ -281,12 +256,12 @@ for fold, (train_idx, test_idx) in enumerate(kf.split(indices)):
     print(f"Test F1-Score:  {f1_test:.4f}")
     print(f"Test Loss:      {test_loss:.4f}")
 
-    # Log the test results for this fold
+    # Log the test results 
     pd.DataFrame([[fold + 1, acc_test, prec_test, rec_test, f1_test, test_loss]],
                  columns=['Fold', 'Accuracy', 'Precision', 'Recall', 'F1', 'Loss']
                  ).to_csv(metrics_csv, mode='a', header=False, index=False)
 
-    # Confusion matrix for test set
+    # Confusion matrix 
     cm = confusion_matrix(true_test, pred_test)
     cm_display = ConfusionMatrixDisplay(cm)
     cm_display.plot(cmap=plt.cm.Blues)
@@ -299,7 +274,6 @@ for fold, (train_idx, test_idx) in enumerate(kf.split(indices)):
     })
     test_results.to_csv(os.path.join(fold_result_path, 'test_results.csv'), index=False)
 
-    # Store fold metrics for final CSV summary
     fold_metrics = {
         'fold': fold + 1,
         'accuracy': acc_test,
@@ -310,6 +284,5 @@ for fold, (train_idx, test_idx) in enumerate(kf.split(indices)):
     }
     all_metrics.append(fold_metrics)
 
-# Save final metrics to CSV
 metrics_df = pd.DataFrame(all_metrics)
 metrics_df.to_csv(metrics_csv, index=False)

@@ -1,4 +1,3 @@
-# Copyright (c) OpenMMLab. All rights reserved.
 import os
 import sys
 import torch
@@ -9,7 +8,6 @@ from mmcv.transforms import Compose
 from mmengine.utils import track_iter_progress
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from tqdm import tqdm
-# ensure your local mmdetection repo is on PYTHONPATH
 sys.path.insert(0, os.path.abspath(r"F:\Saniah\mmdetection"))
 from mmdet.apis import inference_detector, init_detector
 import os
@@ -21,13 +19,11 @@ config           = '/data/Saniah/mmdetection/configs/faster_rcnn/faster-rcnn_r50
 checkpoint       = '/data/Saniah/mmdetection/checkpoints/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth'
 device           = 'cuda:0'
 output_csv       = '/data/Saniah/Video/CSV/track_detect_all_newfound_issue_low.csv'
-score_thr        = 0.7      # MMDet detection threshold
-max_age          = 400      # Deep SORT: keep 'lost' tracks up to this many frames
-n_init           = 3        # Deep SORT: frames before confirming a track
-nms_max_overlap  = 1.0      # Deep SORT: NMS overlcdap for embeddings
-# ----------------
+score_thr        = 0.7    
+max_age          = 400    
+n_init           = 3   
+nms_max_overlap  = 1.0      
 
-# Prepare output directory and CSV
 os.makedirs(os.path.dirname(output_csv), exist_ok=True)
 write_header = not os.path.exists(output_csv)
 csv_file = open(output_csv, 'a', newline='')
@@ -37,18 +33,12 @@ if write_header:
 
 # Initialize MMDetection model and Deep SORT tracker once
 model   = init_detector(config, checkpoint, device=device)
-# ensure proper image pipeline
 model.cfg.test_dataloader.dataset.pipeline[0].type = 'mmdet.LoadImageFromNDArray'
 test_pipeline = Compose(model.cfg.test_dataloader.dataset.pipeline)
 
-# Iterate over classes (engagement labels) and videos
-# for engagement_class in tqdm(sorted(os.listdir(root_dir))):
-#     class_dir = os.path.join(root_dir, engagement_class)
-#     if not os.path.isdir(class_dir):
-#         continue
 for vid_file in tqdm(sorted(os.listdir(root_dir))):
     tracker = DeepSort(max_age=max_age, n_init=n_init, nms_max_overlap=nms_max_overlap)
-    if not vid_file.lower().endswith(('.mp4', '.avi', '.mov')):
+    if not vid_file.lower().endswith(('.mp4')):
         continue
     video_path = os.path.join(root_dir, vid_file)
     reader = mmcv.VideoReader(video_path)

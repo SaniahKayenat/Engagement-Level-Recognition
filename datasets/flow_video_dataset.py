@@ -1,4 +1,3 @@
-# dataset/flow_video_dataset.py
 
 import torch
 from torch.utils.data import Dataset
@@ -7,12 +6,7 @@ from .student_tubes_raft import StudentTubesRaft
 from .video_dataset_raft import VideoDatasetRaft
 
 class FlowVideoDataset(Dataset):
-    """
-    Combined Dataset for Video‐level training:
-      - student_flows: RAFT crops per student  → [N_students, tube_length, 2, h_crop, w_crop]
-      - video_rgb:     full‐video RGB clip       → [3, tube_length, H, W]
-      - label:         engagement class index    → int
-    """
+
     def __init__(
         self,
         csv_path: str,
@@ -47,7 +41,6 @@ class FlowVideoDataset(Dataset):
         self.video_label = { vid: self.flow_ds.entries[idxs[0]]['label']
                             for vid,idxs in self.by_video.items() }
 
-        # pass both into VideoDatasetRaft
         self.video_ds = VideoDatasetRaft(
             video_list  = self.videos,
             video_cls   = self.video_cls,
@@ -62,15 +55,13 @@ class FlowVideoDataset(Dataset):
 
     def __getitem__(self, idx):
         vid = self.videos[idx]
-        # — student flows —
+        
         flow_idxs = self.by_video[vid]
         student_flows = torch.stack(
             [ self.flow_ds[i][0] for i in flow_idxs ],
             dim=0
-        )  # shape: [N_students, T, 2, h_crop, w_crop]
+        ) 
 
-        # — full‐video RGB clip & label —
         video_rgb, label = self.video_ds[idx]
-        # video_rgb: [3, T, H, W]
 
         return student_flows, video_rgb, label

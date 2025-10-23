@@ -7,7 +7,6 @@ from mmcv.transforms import Compose
 from mmengine.utils import track_iter_progress
 from deep_sort_realtime.deepsort_tracker import DeepSort
 
-# ensure your local mmdetection repo is on PYTHONPATH
 sys.path.insert(0, os.path.abspath(r"/data/Saniah/mmdetection"))
 from mmdet.apis import inference_detector, init_detector
 
@@ -16,14 +15,12 @@ input_video      = '/data/Saniah/Video/Dataset_30fps/High/high-2636（1-1000）_
 config           = '/data/Saniah/mmdetection/configs/faster_rcnn/faster-rcnn_r50_fpn_1x_coco.py'
 checkpoint       = '/data/Saniah/mmdetection/checkpoints/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth'
 device           = 'cuda:0'
-score_thr        = 0.7      # MMDet detection threshold
-max_age          = 400      # Deep SORT: keep 'lost' tracks up to this many frames
-n_init           = 3        # Deep SORT: frames before confirming a track
-nms_max_overlap  = 1.0      # Deep SORT: NMS overlap for embeddings
+score_thr        = 0.7     
+max_age          = 400     
+n_init           = 3      
+nms_max_overlap  = 1.0   
 output_video     = '/data/Saniah/Video/Outputs/Detect/High/high-2636（1-1000）_view12_tracked.mp4'
-# ----------------
 
-# create output directory if it doesn't exist
 os.makedirs(os.path.dirname(output_video), exist_ok=True)
 
 # Initialize MMDetection model and Deep SORT tracker
@@ -85,12 +82,9 @@ for frame in track_iter_progress((reader, len(reader))):
             2
         )
 
-    # Write annotated frame
     writer.write(frame)
 
-# Release resources
 writer.release()
 
-# Print summary
 print(f"Saved tracked video to {output_video}")
 print(f"Total unique track IDs found: {len(unique_ids)}")

@@ -2,7 +2,7 @@
 import argparse, random, shutil
 from pathlib import Path
 
-VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".mpeg", ".mpg", ".m4v", ".webm"}
+VIDEO_EXTS = {".mp4"}
 
 def is_video(p: Path) -> bool:
     return p.is_file() and p.suffix.lower() in VIDEO_EXTS

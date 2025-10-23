@@ -9,7 +9,6 @@ class FeatureExtractor(nn.Module):
         base = r3d_18(weights=R3D_18_Weights.DEFAULT)
         modules = list(base.children())[:-1]  
         self.rgb_backbone = nn.Sequential(*modules)
-        # adaptive pool to ensure fixed (1,1,1) output
         self.pool = nn.AdaptiveAvgPool3d((1, 1, 1))
         in_feat = base.fc.in_features
         self.fc_rgb = nn.Linear(in_feat, feat_dim)

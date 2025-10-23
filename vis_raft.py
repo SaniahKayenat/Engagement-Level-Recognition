@@ -11,8 +11,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = raft_large(pretrained=True, progress=False).to(device).eval()
 
 # Parameters
-video_path = '/data/Saniah/Video/Dataset_30fps_cleaned/High/high-2636（1-1000）_view134.mp4.mp4'
-output_dir = '/data/Saniah/Video/Outputs/high-2636（1-1000）_view134.mp4'
+video_path = 'path of mp4 file'
+output_dir = 'path of output mp4 file'
 os.makedirs(output_dir, exist_ok=True)
 
 # Resize target resolution
@@ -50,7 +50,7 @@ while True:
     frame1_tensor = frame2_tensor
     frame_idx += 1
 
-    # Optional memory cleanup
+    #memory cleanup
     del frame2_tensor, flow
     torch.cuda.empty_cache()
 
